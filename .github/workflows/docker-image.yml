@@ -34,4 +34,4 @@ jobs:
           docker tag ai-image-detector:latest 901444280953.dkr.ecr.$AWS_REGION.amazonaws.com/ai-image-detector:latest
 
       - name: Push to Amazon ECR
-        run: docker push 901444280953.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
+        run: docker push 901444280953.dkr.ecr.$AWS_REGION.amazonaws.com/ai-image-detector:latest
