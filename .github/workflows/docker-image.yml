@@ -30,8 +30,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ai-image-detector .
-          docker tag ai-image-detector:latest 901444280953.dkr.ecr.$AWS_REGION.amazonaws.com/ai-image-detector:latest
-
+          docker build -t evan/ai-image-detector .
+          docker tag evan/ai-image-detector:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/evan/ai-image-detector:latest
+          
       - name: Push to Amazon ECR
-        run: docker push 901444280953.dkr.ecr.$AWS_REGION.amazonaws.com/ai-image-detector:latest
+        run: docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/evan/ai-image-detector:latest
