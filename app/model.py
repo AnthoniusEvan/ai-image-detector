@@ -16,9 +16,14 @@ class AIImageDetector:
 
     def predict(self, tensor):
         with torch.no_grad():
-            outputs = self.model(tensor)
+            # In batches to load down the server
+            batch = tensor.repeat(8, 1, 1, 1)
+            outputs = self.model(batch)
             probs = torch.softmax(outputs, dim=1)
-            confidence, predicted_class = torch.max(probs, dim=1)
+            confidences, predicted_classes = torch.max(probs, dim=1)
+            predicted_class = predicted_classes[0]
+            confidence = confidences[0]
+            
             label = "AI-generated" if predicted_class.item() == 1 else "Real"
             return label, confidence.item()
 

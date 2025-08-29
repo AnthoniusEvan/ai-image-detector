@@ -140,6 +140,28 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/detect-image", response_model=DetectionResponse)
+async def detect_image(request: Request, file: UploadFile = File(...)):
+    try:
+        if not file:
+            raise HTTPException(status_code=401, detail="No image file attached")
+
+        content_type = file.content_type
+        if content_type not in ["image/png", "image/jpeg", "image/jpg"]:
+            raise HTTPException(status_code=400, detail="Invalid image format. Only PNG/JPEG allowed.")
+
+        file_content = await file.read()
+        if len(file_content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large (max 10MB).")
+
+        tensor = preprocess_image(file_content)
+        label, confidence = detector.predict(tensor)
+
+        return DetectionResponse(prediction=label, confidence=confidence)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def extract_s3_key(s3_url: str) -> str:
     return urlparse(s3_url).path.lstrip('/')
 

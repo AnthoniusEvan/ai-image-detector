@@ -15,6 +15,7 @@ services:
 
   app:
     build: .
+    # image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/evan/ai-image-detector:latest
     container_name: ai-image-detector
     depends_on:
       - mariadb
@@ -34,7 +35,7 @@ services:
     volumes:
       - ./app:/app
     command: >
-      sh -c "python db/db.py && uvicorn app:app --host 0.0.0.0 --port 8080 --reload"
+      sh -c "python db/db.py && uvicorn app:app --host 0.0.0.0 --port 8080"
     restart: always
 
 # remove --reload in production
