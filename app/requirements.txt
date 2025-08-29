@@ -6,3 +6,10 @@ torchvision
 numpy
 opencv-python
 scikit-learn
+python-multipart
+mariadb
+PyJWT                
+pydantic 
+torch              
+Pillow       
+boto3

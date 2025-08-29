@@ -1,6 +1,5 @@
 from PIL import Image
 import io
-import torch
 from torchvision import transforms
 
 def preprocess_image(image_bytes: bytes):
@@ -11,4 +10,4 @@ def preprocess_image(image_bytes: bytes):
         transforms.Normalize([0.485, 0.456, 0.406],
                              [0.229, 0.224, 0.225])
     ])
-    return transform(image).unsqueeze(0)  # shape: (1, 3, 224, 224)
+    return transform(image).unsqueeze(0) 
