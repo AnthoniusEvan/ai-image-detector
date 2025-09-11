@@ -1,44 +1,21 @@
 services:
-  mariadb:
-    image: mariadb:11
-    container_name: mariadb
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: ai_detector
-      MYSQL_USER: user
-      MYSQL_PASSWORD: pass
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-
   app:
     build: .
-    # image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/evan/ai-image-detector:latest
     container_name: ai-image-detector
-    depends_on:
-      - mariadb
     environment:
-      DB_HOST: mariadb
-      DB_USER: user
-      DB_PASSWORD: pass
-      DB_NAME: ai_detector
-      DB_PORT: 3306
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
       AWS_REGION: ${AWS_REGION}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      QUT_USERNAME: ${QUT_USERNAME}
+      DDB_TABLE: ${DDB_TABLE}
+      DDB_USERS_TABLE: ${DDB_USERS_TABLE}
+      DDB_IMAGES_TABLE: ${DDB_IMAGES_TABLE}
     ports:
       - "8080:8080"
     volumes:
-      - ./app:/app
+      - ./:/app
     command: >
-      sh -c "python db/db.py && uvicorn app:app --host 0.0.0.0 --port 8080"
+      sh -c "uvicorn app:app --host 0.0.0.0 --port 8080"
     restart: always
-
-# remove --reload in production
-
-volumes:
-  mariadb_data:
