@@ -8,7 +8,7 @@ from api.models import (
     delete_image as delete_image_row,
     get_image_by_id,
 )
-from aws.s3 import delete_image_from_s3
+from aws_related.s3 import delete_image_from_s3
 from urllib.parse import urlparse
 
 router = APIRouter()
@@ -67,10 +67,7 @@ def delete_image(image_id: str):
 
 def set_user_prediction(image_id: str, model_prediction: str, user_agrees: bool):
     try:
-        if user_agrees:
-            user_prediction = model_prediction
-        else:
-            user_prediction = "AI-generated" if model_prediction == "Real" else "Real"
+        user_prediction = model_prediction if user_agrees else ("AI-generated" if model_prediction == "Real" else "Real")
         result = update_user_prediction(image_id, user_prediction)
         if not result.get("updated"):
             raise HTTPException(status_code=404, detail="Image not found")

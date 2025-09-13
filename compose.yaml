@@ -2,20 +2,9 @@ services:
   app:
     build: .
     container_name: ai-image-detector
-    environment:
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
-      AWS_REGION: ${AWS_REGION}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      QUT_USERNAME: ${QUT_USERNAME}
-      DDB_TABLE: ${DDB_TABLE}
-      DDB_USERS_TABLE: ${DDB_USERS_TABLE}
-      DDB_IMAGES_TABLE: ${DDB_IMAGES_TABLE}
+    env_file:
+      - .env
     ports:
       - "8080:8080"
-    volumes:
-      - ./:/app
-    command: >
-      sh -c "uvicorn app:app --host 0.0.0.0 --port 8080"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: always
