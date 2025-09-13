@@ -30,12 +30,16 @@ services:
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
       AWS_REGION: ${AWS_REGION}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      SECRET_KEY: ${SECRET_KEY}
+      AWS_COGNITO_CLIENT_ID: ${AWS_COGNITO_CLIENT_ID}
+      AWS_COGNITO_CLIENT_SECRET: ${AWS_COGNITO_CLIENT_SECRET}
+      AWS_COGNITO_JWSKS_URL: ${AWS_COGNITO_JWSKS_URL}
     ports:
       - "8080:8080"
     volumes:
       - ./app:/app
     command: >
-      sh -c "python db/db.py && uvicorn app:app --host 0.0.0.0 --port 8080"
+      sh -c "pip install --no-cache-dir -r requirements.txt && python db/db.py && uvicorn app:app --host 0.0.0.0 --port 8080 --reload"
     restart: always
 
 # remove --reload in production

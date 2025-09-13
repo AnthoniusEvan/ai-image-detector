@@ -29,7 +29,7 @@ def init_db():
    
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INT PRIMARY KEY AUTO_INCREMENT,
+                id VARCHAR(50) PRIMARY KEY,
                 username VARCHAR(50) NOT NULL UNIQUE,
                 password VARCHAR(512) NOT NULL,
                 is_admin TINYINT DEFAULT 0,

@@ -1,0 +1,100 @@
+<html>
+  <head>
+    <title>Sign Up</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/public/css/root.css">
+    <link rel="stylesheet" href="/public/css/auth.css">
+  </head>
+  <body>
+    <div class="container" id="signup-container">
+      <h2 id="title">Sign Up</h2>
+
+      <!-- Sign Up Form -->
+      <form class="login-form" id="signup-form" onsubmit="signUp(event)">
+        <label for="username">Username</label><br>
+        <input name="username" type="text" required><br>
+
+        <label for="email">Email</label><br>
+        <input name="email" type="email" required><br>
+
+        <label for="password">Password</label><br>
+        <input name="password" type="password" required
+               pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{8,}"
+               title="Password must be at least 8 characters, include uppercase, lowercase, and number"><br><br>
+
+        <input type="submit" value="Sign Up" style="width: 100%;">
+      </form>
+
+      <!-- Confirmation Code Form -->
+      <form class="login-form" id="confirm-form" onsubmit="confirmSignUp(event)" style="display:none;">
+        <label for="code">Confirmation Code</label><br>
+        <input name="code" type="text" required><br><br>
+        <p>A verification code has been sent to your email. Code is valid for 24h</p>
+
+        <input type="submit" value="Confirm" style="width: 100%;">
+      </form>
+    </div>
+
+    <script>
+      let username = '';
+      async function signUp(e){
+        e.preventDefault();
+        const form = e.target;
+        username = form.username.value;
+        const email = form.email.value;
+        const password = form.password.value;
+
+        try {
+          const response = await fetch("/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password })
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            alert(data.detail || "Sign up failed.");
+            return;
+          }
+
+          // Hide signup, show confirm modal
+          form.style.display = "none";
+          document.getElementById("title").innerHTML = "Email Verification"
+          document.getElementById("confirm-form").style.display = "block";
+
+        } catch (err) {
+          console.error(err);
+          alert("An error occurred during signup.");
+        }
+      }
+
+      async function confirmSignUp(e){
+        e.preventDefault();
+        const form = e.target;
+        const code = form.code.value;
+
+        try {
+          const response = await fetch("/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, code })
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            alert(data.detail || "Confirmation failed.");
+            return;
+          }
+
+          alert("Sign up confirmed! You can now log in.");
+          window.location.href = "/login";
+
+        } catch (err) {
+          console.error(err);
+          alert("An error occurred during confirmation.");
+        }
+      }
+    </script>
+  </body>
+</html>

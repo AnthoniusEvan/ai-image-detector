@@ -30,10 +30,20 @@ def get_username(id):
         return row[0]
     return None
 
-def is_user_admin(id):
+# def is_user_admin(id):
+#     conn = get_connection()
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT is_admin from users WHERE id=?", (id,))
+#     row = cursor.fetchone()
+#     conn.close()
+#     if row:
+#         return row[0]
+#     return None
+
+def is_user_admin(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT is_admin from users WHERE id=?", (id,))
+    cursor.execute("SELECT is_admin from users WHERE username=?", (username,))
     row = cursor.fetchone()
     conn.close()
     if row:

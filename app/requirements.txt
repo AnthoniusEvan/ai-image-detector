@@ -13,3 +13,8 @@ pydantic
 torch              
 Pillow       
 boto3
+authlib
+werkzeug
+flask
+requests
+httpx
