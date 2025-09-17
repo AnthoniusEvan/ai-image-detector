@@ -11,3 +11,4 @@ PyJWT
 pydantic
 boto3
 python-dotenv
+decimal
