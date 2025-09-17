@@ -18,6 +18,7 @@ from PIL import Image
 
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
+from app.aws_related.secret import get_jwt_secret
 from app.utils import preprocess_image
 from app.model import detector
 from app.schemas import DetectionResponse
@@ -29,15 +30,16 @@ app = FastAPI(
     version="0.0.1",
 )
 
-app.secret_key = "e9aae26be08551392be664d620fb422350a30349899fc254a0f37bfa1b945e36ff20d25b12025e1067f9b69e8b8f2ef0f767f6fff6279e5755668bf4bae88588"
-
+# 🔒 Load JWT signing key from Secrets Manager (tutorial-compliant)
+app.secret_key = get_jwt_secret()
+print("[config] JWT secret loaded from Secrets Manager")
 
 try:
     dynamo.ensure_all()
     dynamo.bootstrap_default_users()
+    print("[config] Dynamo tables ensured; default users bootstrapped")
 except Exception as e:
-    print(f"[warn] bootstrap failed: {e}")
-
+    print(f("[warn] bootstrap failed: {e}"))
 
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 _candidate_in_app = os.path.join(_base_dir, "public")
