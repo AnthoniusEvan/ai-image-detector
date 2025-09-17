@@ -29,17 +29,16 @@ app = FastAPI(
     version="0.0.1",
 )
 
-# Attach a secret for JWT (FastAPI doesn't use this attr; it's just a holder for us)
 app.secret_key = "e9aae26be08551392be664d620fb422350a30349899fc254a0f37bfa1b945e36ff20d25b12025e1067f9b69e8b8f2ef0f767f6fff6279e5755668bf4bae88588"
 
-# Bootstrap Dynamo tables & default users
+
 try:
     dynamo.ensure_all()
     dynamo.bootstrap_default_users()
 except Exception as e:
     print(f"[warn] bootstrap failed: {e}")
 
-# Static/public
+
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 _candidate_in_app = os.path.join(_base_dir, "public")
 _candidate_root = os.path.normpath(os.path.join(_base_dir, "..", "public"))
@@ -193,7 +192,7 @@ async def login_page():
 
 
 @app.get("/")
-async def main_page(user=Depends(browser_auth)):
+async def main_page():
     return FileResponse(os.path.join(directory_path, "index.html"))
 
 

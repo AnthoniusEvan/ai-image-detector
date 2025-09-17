@@ -7,7 +7,7 @@ import torch
 
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
-MODEL_KEY = os.getenv("AWS_S3_MODEL_KEY", "models/model.pth")
+MODEL_KEY = os.getenv("AWS_S3_MODEL_KEY", "model/model.pth")
 
 _session = boto3.session.Session(region_name=AWS_REGION)
 _s3 = _session.client("s3")
