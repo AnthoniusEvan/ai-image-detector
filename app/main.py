@@ -14,7 +14,28 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
+from api.controllers import set_user_prediction
+from utils import preprocess_image
+from model import detector
+from schemas import DetectionResponse
+from api.models import *
+from aws import s3
+import os
+from datetime import timezone
+import urllib.request
+import json
 from PIL import Image
+from aws.cognito.signUp import signup
+from aws.cognito.confirm import confirm
+from dotenv import load_dotenv
+
+load_dotenv()
+COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
+COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
+
+# JWKS_URL = os.environ['AWS_COGNITO_JWSKS_URL']
+
+# jwks = requests.get(JWKS_URL).json()
 
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
@@ -45,54 +66,37 @@ _base_dir = os.path.dirname(os.path.abspath(__file__))
 _candidate_in_app = os.path.join(_base_dir, "public")
 _candidate_root = os.path.normpath(os.path.join(_base_dir, "..", "public"))
 directory_path = _candidate_in_app if os.path.isdir(_candidate_in_app) else _candidate_root
+app.secret_key = os.environ['SECRET_KEY']
+
+from authlib.integrations.starlette_client import OAuth
+from starlette.middleware.sessions import SessionMiddleware
+
+app.add_middleware(SessionMiddleware, secret_key=os.environ['SECRET_KEY'])
+oauth = OAuth()
+
+oauth.register(
+  name='oidc',
+  client_id=COGNITO_CLIENT_ID,
+  client_secret=COGNITO_CLIENT_SECRET,
+  server_metadata_url='https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_OJJPCGF1d/.well-known/openid-configuration',
+  client_kwargs={'scope': 'email openid phone'}
+)
 
 app.mount("/public", StaticFiles(directory=directory_path), name="public")
 templates = Jinja2Templates(directory=directory_path)
 
 
-def generate_access_token(id: str, username: str) -> str:
-    payload = {
-        "id": id,
-        "username": username,
-        "exp": datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30),
-    }
-    token = jwt.encode(payload, app.secret_key, algorithm="HS256")
-    return token
-
-
-def browser_auth(authToken: str | None = Cookie(default=None)):
-    if not authToken:
-        raise HTTPException(status_code=307, detail="Redirect", headers={"Location": "/login"})
-    try:
-        user = jwt.decode(authToken, app.secret_key, algorithms=["HS256"])
-        return user
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=307, detail="Redirect", headers={"Location": "/login"})
-
-
-def authenticate_token(authToken: str | None = Cookie(default=None)):
-    if not authToken:
+def authenticate_token(request: Request):
+    user = request.session.get('user')
+    if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    try:
-        user = jwt.decode(authToken, app.secret_key, algorithms=["HS256"])
-        return user
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user
 
-
-@app.post("/login")
-async def login(request: Request):
-    data = await request.json()
-    username = data.get("username")
-    password = data.get("password")
-    user_id = dynamo.users_get_id_by_credentials(username, password)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Incorrect credentials")
-    token = generate_access_token(user_id, username)
-    response = JSONResponse(content={"message": "Logged in"})
-    response.set_cookie(key="authToken", value=token, httponly=True, max_age=1800, samesite="lax")
-    return response
-
+def browser_auth(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=307, detail="Redirect", headers={"Location": "/login"})
+    return user
 
 class FeedbackRequest(BaseModel):
     image_id: str
@@ -189,8 +193,77 @@ async def result_page(image_id: str, request: Request, user=Depends(browser_auth
 
 
 @app.get("/login")
-async def login_page():
-    return FileResponse(os.path.join(directory_path, "login.html"))
+async def login(request: Request):
+    redirect_uri = request.url_for("authorize") 
+    return await oauth.oidc.authorize_redirect(request, redirect_uri)
+
+@app.get("/authorize")
+async def authorize(request: Request):
+    token = await oauth.oidc.authorize_access_token(request) 
+    user = token['userinfo']
+    request.session['user'] = user 
+    return RedirectResponse(url="/")
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.pop('user', None)
+    base_url = str(request.base_url) + "index"
+    cognito_logout_url = (
+        f"https://ap-southeast-2ojjpcgf1d.auth.ap-southeast-2.amazoncognito.com/logout"
+        f"?client_id={COGNITO_CLIENT_ID}"
+        f"&logout_uri={base_url}"
+    )
+    return RedirectResponse(url=cognito_logout_url)
+
+
+@app.get('/')
+async def main_page(request: Request):
+    user = request.session.get('user')
+    if user:
+        return FileResponse(os.path.join(directory_path, 'index.html'))
+    else:
+        return RedirectResponse(url="/login")
+    
+
+@app.get('/index')
+async def index_page(request: Request):
+    user = request.session.get('user')
+    if user:
+        return FileResponse(os.path.join(directory_path, 'index.html'))
+    else:
+        return HTMLResponse("<h2>AI Image Detector</h2><p>To use this service please <a href='/login'>login</a></p><a href='/signup'>Sign up</a>")
+    
+
+@app.get('/signup')
+async def index_page(request: Request):
+    return FileResponse(os.path.join(directory_path, 'signUp.html'))
+    
+@app.post('/signup')
+async def sign_up(request: Request):
+    data = await request.json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+   
+    try:
+        result = signup(username, password, email)
+        return {"detail": "Sign up successful. Please check your email for the confirmation code."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+ 
+@app.post('/confirm')
+async def sign_up(request: Request):
+    data = await request.json()
+    username = data.get('username')
+    code = data.get('code')
+    try:
+        result = confirm(username, code)
+        return {"detail": "Confirmation successful. You can now log in."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    
 
 
 @app.get("/")
@@ -251,7 +324,7 @@ def get_game_image(user=Depends(browser_auth)):
     img.save(buf, format="JPEG")
     buf.seek(0)
     response = StreamingResponse(buf, media_type="image/jpeg")
-    response.headers["user_id"] = str(user["id"])
+    response.headers["user_id"] = str(user["cognito:username"])
     response.headers["answer"] = answer
     return response
 

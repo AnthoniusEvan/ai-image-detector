@@ -11,3 +11,14 @@ PyJWT
 pydantic
 boto3
 python-dotenv
+mariadb
+PyJWT                
+pydantic 
+torch              
+Pillow       
+boto3
+authlib
+werkzeug
+flask
+requests
+httpx
