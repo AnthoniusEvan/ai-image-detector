@@ -19,7 +19,7 @@ from utils import preprocess_image
 from model import detector
 from schemas import DetectionResponse
 from api.models import *
-from aws import s3
+from aws_related import s3
 import os
 from datetime import timezone
 import urllib.request
@@ -33,17 +33,12 @@ load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
 COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
 
-# JWKS_URL = os.environ['AWS_COGNITO_JWSKS_URL']
-
-# jwks = requests.get(JWKS_URL).json()
-
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
 from app.aws_related.secret import get_jwt_secret
 from app.utils import preprocess_image
 from app.model import detector
 from app.schemas import DetectionResponse
-
 
 app = FastAPI(
     title="AI Image Detector",
@@ -52,7 +47,8 @@ app = FastAPI(
 )
 
 # 🔒 Load JWT signing key from Secrets Manager (tutorial-compliant)
-app.secret_key = get_jwt_secret()
+SECRET_KEY = get_jwt_secret()
+app.secret_key = SECRET_KEY
 print("[config] JWT secret loaded from Secrets Manager")
 
 try:
@@ -60,18 +56,16 @@ try:
     dynamo.bootstrap_default_users()
     print("[config] Dynamo tables ensured; default users bootstrapped")
 except Exception as e:
-    print(f("[warn] bootstrap failed: {e}"))
+    print((f"[warn] bootstrap failed: {e}"))
 
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 _candidate_in_app = os.path.join(_base_dir, "public")
 _candidate_root = os.path.normpath(os.path.join(_base_dir, "..", "public"))
 directory_path = _candidate_in_app if os.path.isdir(_candidate_in_app) else _candidate_root
-app.secret_key = os.environ['SECRET_KEY']
-
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 
-app.add_middleware(SessionMiddleware, secret_key=os.environ['SECRET_KEY'])
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 oauth = OAuth()
 
 oauth.register(
@@ -79,12 +73,11 @@ oauth.register(
   client_id=COGNITO_CLIENT_ID,
   client_secret=COGNITO_CLIENT_SECRET,
   server_metadata_url='https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_OJJPCGF1d/.well-known/openid-configuration',
-  client_kwargs={'scope': 'email openid phone'}
+  client_kwargs={'scope': 'email openid profile'}
 )
 
 app.mount("/public", StaticFiles(directory=directory_path), name="public")
 templates = Jinja2Templates(directory=directory_path)
-
 
 def authenticate_token(request: Request):
     user = request.session.get('user')
@@ -134,7 +127,7 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
         tensor = preprocess_image(file_content)
         label, confidence = detector.predict(tensor)
 
-        image_id = dynamo.images_insert(file.filename, "", user["id"], label, confidence).get("id")
+        image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
         s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
         dynamo.images_update_s3_key(image_id, s3_key)
 
@@ -273,7 +266,7 @@ async def main_page():
 
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
-    is_admin = dynamo.users_is_admin(user["id"])
+    is_admin = dynamo.users_is_admin(user["sub"])
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     return FileResponse(os.path.join(directory_path, "admin.html"))
@@ -289,7 +282,7 @@ async def admin_uploads(
     username: str | None = None,
     prediction: str | None = None,
 ):
-    is_admin = dynamo.users_is_admin(user["id"])
+    is_admin = dynamo.users_is_admin(user["sub"])
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     allowed_sort_fields = ["uploaded_at", "id", "filename", "prediction", "image_id"]
@@ -339,7 +332,7 @@ async def save_accuracy(request: Request, user=Depends(browser_auth)):
     data = await request.json()
     accuracy = float(data.get("accuracy", 0))
     try:
-        result = dynamo.put_accuracy(user["id"], accuracy)
+        result = dynamo.put_accuracy(user["sub"], accuracy)
         return {"status": "updated" if result.get("updated") else "error"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
