@@ -4,10 +4,6 @@ import os
 import random
 import json
 import urllib.request
-import datetime
-from datetime import timezone
-
-import jwt
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends, Cookie, Query
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,13 +11,11 @@ from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
 from api.controllers import set_user_prediction
-from utils import preprocess_image
-from model import detector
+from app.aws_related.memcached import predict_image
 from schemas import DetectionResponse
 from api.models import *
 from aws_related import s3
 import os
-from datetime import timezone
 import urllib.request
 import json
 from PIL import Image
@@ -46,7 +40,6 @@ app = FastAPI(
     version="0.0.1",
 )
 
-# 🔒 Load JWT signing key from Secrets Manager (tutorial-compliant)
 SECRET_KEY = get_jwt_secret()
 app.secret_key = SECRET_KEY
 print("[config] JWT secret loaded from Secrets Manager")
@@ -90,6 +83,10 @@ def browser_auth(request: Request):
     if not user:
         raise HTTPException(status_code=307, detail="Redirect", headers={"Location": "/login"})
     return user
+
+def is_user_admin(user):
+    groups = user.get("cognito:groups", [])
+    return "Admin" in groups
 
 class FeedbackRequest(BaseModel):
     image_id: str
@@ -152,8 +149,7 @@ async def detect_image_simple(request: Request, file: UploadFile = File(...)):
         if len(file_content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB).")
 
-        tensor = preprocess_image(file_content)
-        label, confidence = detector.predict(tensor)
+        label, confidence = predict_image(file_content)
         return DetectionResponse(prediction=label, confidence=confidence)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -266,7 +262,7 @@ async def main_page():
 
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
-    is_admin = dynamo.users_is_admin(user["sub"])
+    is_admin = is_user_admin(user)
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     return FileResponse(os.path.join(directory_path, "admin.html"))
@@ -282,7 +278,7 @@ async def admin_uploads(
     username: str | None = None,
     prediction: str | None = None,
 ):
-    is_admin = dynamo.users_is_admin(user["sub"])
+    is_admin = is_user_admin(user)
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     allowed_sort_fields = ["uploaded_at", "id", "filename", "prediction", "image_id"]
