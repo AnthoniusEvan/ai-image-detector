@@ -45,10 +45,13 @@ app = FastAPI(
 )
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Load JWT secret from Secrets Manager, falling back to APP_SECRET env if no perms.
 # (get_jwt_secret() already logs the fallback)
 app.secret_key = os.getenv("APP_SECRET") or get_jwt_secret()
 =======
+=======
+>>>>>>> Stashed changes
 SECRET_KEY = get_jwt_secret()
 app.secret_key = SECRET_KEY
 print("[config] JWT secret loaded from Secrets Manager")
@@ -71,7 +74,10 @@ app.mount("/public", StaticFiles(directory=directory_path), name="public")
 templates = Jinja2Templates(directory=directory_path)
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 
 def is_user_admin(user):
     groups = user.get("cognito:groups", [])
@@ -234,7 +240,11 @@ async def main_page():
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     is_admin = dynamo.users_is_admin(user["id"])
+=======
+    is_admin = is_user_admin(user)
+>>>>>>> Stashed changes
 =======
     is_admin = is_user_admin(user)
 >>>>>>> Stashed changes
@@ -254,7 +264,11 @@ async def admin_uploads(
     prediction: str | None = None,
 ):
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     is_admin = dynamo.users_is_admin(user["id"])
+=======
+    is_admin = is_user_admin(user)
+>>>>>>> Stashed changes
 =======
     is_admin = is_user_admin(user)
 >>>>>>> Stashed changes
