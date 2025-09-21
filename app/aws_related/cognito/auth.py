@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream:app/aws/cognito/signUp.py
 # app/aws/cognito/signUp.py
 import os
 import hmac, hashlib, base64
@@ -5,6 +6,16 @@ import boto3
 from typing import Optional
 
 REGION = os.getenv("AWS_REGION", "ap-southeast-2")
+=======
+import boto3
+import os
+import hmac, hashlib, base64 
+from dotenv import load_dotenv
+load_dotenv()
+
+client_id = os.environ['AWS_COGNITO_CLIENT_ID']
+client_secret = os.environ['AWS_COGNITO_CLIENT_SECRET']
+>>>>>>> Stashed changes:app/aws_related/cognito/auth.py
 
 def _secret_hash(client_id: str, client_secret: str, username: str) -> str:
     message = (username + client_id).encode("utf-8")
@@ -37,9 +48,21 @@ def signup(
         UserAttributes=[{"Name": "email", "Value": email}],
     )
 
+<<<<<<< Updated upstream:app/aws/cognito/signUp.py
 if __name__ == "__main__":
     # Example usage; edit values before running this file directly.
     u = os.getenv("DEMO_USERNAME", "user")
     p = os.getenv("DEMO_PASSWORD", "MySuperSecret99!")
     e = os.getenv("DEMO_EMAIL", "someone@example.com")
     print(signup(u, p, e))
+=======
+def confirm(username, confirmation_code):
+    client = boto3.client("cognito-idp", region_name="ap-southeast-2")
+    response = client.confirm_sign_up(
+        ClientId=client_id,
+        Username=username,
+        ConfirmationCode=confirmation_code,
+        SecretHash=secretHash(client_id, client_secret, username)
+    )
+    return response
+>>>>>>> Stashed changes:app/aws_related/cognito/auth.py

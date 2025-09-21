@@ -1,20 +1,33 @@
-# app/main.py
 from io import BytesIO
 import os
 import random
 import json
+from PIL import Image
 import urllib.request
-import datetime
-from datetime import timezone
-
-import jwt
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends, Cookie, Query
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
+<<<<<<< Updated upstream
 from PIL import Image
+=======
+from api.controllers import set_user_prediction
+from app.aws_related.memcached import predict_image
+from schemas import DetectionResponse
+from api.models import *
+from aws_related import s3
+import os
+import urllib.request
+import json
+from app.aws_related.cognito.auth import *
+from dotenv import load_dotenv
+
+load_dotenv()
+COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
+COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
+>>>>>>> Stashed changes
 
 # keep your app modules only (no cognito helpers here)
 from app.api.controllers import set_user_prediction
@@ -31,9 +44,15 @@ app = FastAPI(
     version="0.0.1",
 )
 
+<<<<<<< Updated upstream
 # Load JWT secret from Secrets Manager, falling back to APP_SECRET env if no perms.
 # (get_jwt_secret() already logs the fallback)
 app.secret_key = os.getenv("APP_SECRET") or get_jwt_secret()
+=======
+SECRET_KEY = get_jwt_secret()
+app.secret_key = SECRET_KEY
+print("[config] JWT secret loaded from Secrets Manager")
+>>>>>>> Stashed changes
 
 try:
     dynamo.ensure_all()
@@ -51,6 +70,19 @@ directory_path = _candidate_in_app if os.path.isdir(_candidate_in_app) else _can
 app.mount("/public", StaticFiles(directory=directory_path), name="public")
 templates = Jinja2Templates(directory=directory_path)
 
+<<<<<<< Updated upstream
+=======
+
+def is_user_admin(user):
+    groups = user.get("cognito:groups", [])
+    return "Admin" in groups
+        
+def authenticate_token(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return user
+>>>>>>> Stashed changes
 
 def generate_access_token(id: str, username: str) -> str:
     payload = {
@@ -157,8 +189,7 @@ async def detect_image_simple(request: Request, file: UploadFile = File(...)):
         if len(file_content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB).")
 
-        tensor = preprocess_image(file_content)
-        label, confidence = detector.predict(tensor)
+        label, confidence = predict_image(file_content)
         return DetectionResponse(prediction=label, confidence=confidence)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -202,7 +233,11 @@ async def main_page():
 
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
+<<<<<<< Updated upstream
     is_admin = dynamo.users_is_admin(user["id"])
+=======
+    is_admin = is_user_admin(user)
+>>>>>>> Stashed changes
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     return FileResponse(os.path.join(directory_path, "admin.html"))
@@ -218,7 +253,11 @@ async def admin_uploads(
     username: str | None = None,
     prediction: str | None = None,
 ):
+<<<<<<< Updated upstream
     is_admin = dynamo.users_is_admin(user["id"])
+=======
+    is_admin = is_user_admin(user)
+>>>>>>> Stashed changes
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     allowed_sort_fields = ["uploaded_at", "id", "filename", "prediction", "image_id"]

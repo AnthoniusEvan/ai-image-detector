@@ -22,3 +22,4 @@ werkzeug
 flask
 requests
 httpx
+pymemcache
