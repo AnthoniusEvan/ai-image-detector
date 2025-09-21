@@ -10,9 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
-<<<<<<< Updated upstream
 from PIL import Image
-=======
 from api.controllers import set_user_prediction
 from app.aws_related.memcached import predict_image
 from schemas import DetectionResponse
@@ -27,7 +25,6 @@ from dotenv import load_dotenv
 load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
 COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
->>>>>>> Stashed changes
 
 # keep your app modules only (no cognito helpers here)
 from app.api.controllers import set_user_prediction
@@ -44,18 +41,10 @@ app = FastAPI(
     version="0.0.1",
 )
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-# Load JWT secret from Secrets Manager, falling back to APP_SECRET env if no perms.
-# (get_jwt_secret() already logs the fallback)
-app.secret_key = os.getenv("APP_SECRET") or get_jwt_secret()
-=======
-=======
->>>>>>> Stashed changes
-SECRET_KEY = get_jwt_secret()
+
+SECRET_KEY = os.getenv("APP_SECRET") or get_jwt_secret()
 app.secret_key = SECRET_KEY
 print("[config] JWT secret loaded from Secrets Manager")
->>>>>>> Stashed changes
 
 try:
     dynamo.ensure_all()
@@ -73,12 +62,6 @@ directory_path = _candidate_in_app if os.path.isdir(_candidate_in_app) else _can
 app.mount("/public", StaticFiles(directory=directory_path), name="public")
 templates = Jinja2Templates(directory=directory_path)
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-
 def is_user_admin(user):
     groups = user.get("cognito:groups", [])
     return "Admin" in groups
@@ -88,17 +71,6 @@ def authenticate_token(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return user
->>>>>>> Stashed changes
-
-def generate_access_token(id: str, username: str) -> str:
-    payload = {
-        "id": id,
-        "username": username,
-        "exp": datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30),
-    }
-    token = jwt.encode(payload, app.secret_key, algorithm="HS256")
-    return token
-
 
 def browser_auth(authToken: str | None = Cookie(default=None)):
     if not authToken:
@@ -239,15 +211,7 @@ async def main_page():
 
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    is_admin = dynamo.users_is_admin(user["id"])
-=======
     is_admin = is_user_admin(user)
->>>>>>> Stashed changes
-=======
-    is_admin = is_user_admin(user)
->>>>>>> Stashed changes
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     return FileResponse(os.path.join(directory_path, "admin.html"))
@@ -263,15 +227,7 @@ async def admin_uploads(
     username: str | None = None,
     prediction: str | None = None,
 ):
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    is_admin = dynamo.users_is_admin(user["id"])
-=======
     is_admin = is_user_admin(user)
->>>>>>> Stashed changes
-=======
-    is_admin = is_user_admin(user)
->>>>>>> Stashed changes
     if not is_admin:
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     allowed_sort_fields = ["uploaded_at", "id", "filename", "prediction", "image_id"]
