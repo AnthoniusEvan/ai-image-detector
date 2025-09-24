@@ -116,23 +116,22 @@ def bootstrap_default_users():
 
 # --- Users --------------------------------------------------------------------
 
-def users_insert(username: str, is_admin: int, default_password: str = "password"):
+def users_insert(id: str, username: str, is_admin: int, default_password: str = "password"):
     t = _tbl(USERS_TABLE)
     existing = _query_user_by_username(username)
     if existing:
         return {"id": existing["id"], "username": existing["username"], "is_admin": existing.get("is_admin", 0)}
 
-    uid = str(uuid.uuid4())
     item = {
         PK_NAME: QUT_USERNAME,
-        "id": uid,
+        "id": id,
         "username": username,
         "password_hash": _hash(default_password),
         "is_admin": int(bool(is_admin)),
         "created_at": _now_iso(),
     }
     t.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
-    return {"id": uid, "username": username, "is_admin": int(bool(is_admin))}
+    return {"id": id, "username": username, "is_admin": int(bool(is_admin))}
 
 def users_get_id_by_credentials(username: str, password: str):
     u = _query_user_by_username(username)

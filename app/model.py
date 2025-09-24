@@ -6,7 +6,7 @@ from torchvision import models
 class AIImageDetector:
     def __init__(self, model_path: str = None):
         self.device = torch.device("cpu")
-        self.model = models.resnet50(weights=True)
+        self.model = models.resnet50()
         self.model.fc = nn.Linear(self.model.fc.in_features, 2)
         if model_path:
             if model_path == "image":

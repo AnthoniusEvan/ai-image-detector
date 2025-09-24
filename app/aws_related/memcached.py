@@ -5,7 +5,9 @@ from model import detector
 
 try:
     cache = Client(('ai-image-detector-memcache.km2jzi.cfg.apse2.cache.amazonaws.com',11211),connect_timeout=1,timeout=1)
+    print("memcache success to initialize")
 except Exception as e:
+    print("memcache failed to initialize")
     cache = None
 
 def get_image_hash(image_bytes: bytes) -> str:
@@ -19,6 +21,8 @@ def predict_image(image_bytes: bytes):
         try:
             cached_result = cache.get(image_hash)
             if cached_result:
+
+                print('Found cache')    
                 label, confidence = cached_result.decode().split("|")
                 return label, float(confidence)
         except Exception:
@@ -28,6 +32,7 @@ def predict_image(image_bytes: bytes):
     label, confidence = detector.predict(tensor)
     if cache:
         try:
+            print('setting cache')
             cache.set(image_hash, f"{label}|{confidence}", expire=86400)
         except Exception:
             pass

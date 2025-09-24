@@ -121,8 +121,7 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
         if len(file_content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB).")
 
-        tensor = preprocess_image(file_content)
-        label, confidence = detector.predict(tensor)
+        label, confidence = predict_image(file_content)
 
         image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
         s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
@@ -190,6 +189,8 @@ async def login(request: Request):
 async def authorize(request: Request):
     token = await oauth.oidc.authorize_access_token(request) 
     user = token['userinfo']
+
+    insert_user(user.get('sub'), user.get('cognito:username'), 0)
     request.session['user'] = user 
     return RedirectResponse(url="/")
 
@@ -208,6 +209,7 @@ async def logout(request: Request):
 @app.get('/')
 async def main_page(request: Request):
     user = request.session.get('user')
+    print(user)
     if user:
         return FileResponse(os.path.join(directory_path, 'index.html'))
     else:

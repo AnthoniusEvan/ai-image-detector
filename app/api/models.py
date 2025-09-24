@@ -1,8 +1,8 @@
 from fastapi import Query
 from aws_related import dynamo
 
-def insert_user(username, is_admin):
-    return dynamo.users_insert(username, is_admin)
+def insert_user(id, username, is_admin):
+    return dynamo.users_insert(id, username, is_admin)
 
 def get_user(username, password):
     return dynamo.users_get_id_by_credentials(username, password)
