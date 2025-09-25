@@ -127,11 +127,7 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
         s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
         dynamo.images_update_s3_key(image_id, s3_key)
 
-        referer = request.headers.get("Referer", "")
-        main_page_url = request.url_for("main_page")
-        if referer.startswith(str(main_page_url)):
-            return RedirectResponse(url=f"/result/{image_id}", status_code=303)
-        return DetectionResponse(prediction=label, confidence=confidence)
+        return RedirectResponse(url=f"/result/{image_id}", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -179,10 +175,10 @@ async def result_page(image_id: str, request: Request, user=Depends(browser_auth
         },
     )
 
-
+PUBLIC_DOMAIN = "https://ai-image-detector.cab432.com"
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("authorize") 
+    redirect_uri = f"{PUBLIC_DOMAIN}/authorize"
     return await oauth.oidc.authorize_redirect(request, redirect_uri)
 
 @app.get("/authorize")

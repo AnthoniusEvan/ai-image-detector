@@ -130,7 +130,11 @@ def users_insert(id: str, username: str, is_admin: int, default_password: str = 
         "is_admin": int(bool(is_admin)),
         "created_at": _now_iso(),
     }
-    t.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
+    try:
+        t.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
+    except:
+        # user already exists, ignore
+        pass
     return {"id": id, "username": username, "is_admin": int(bool(is_admin))}
 
 def users_get_id_by_credentials(username: str, password: str):

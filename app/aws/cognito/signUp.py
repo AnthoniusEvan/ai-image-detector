@@ -24,6 +24,7 @@ def signup(username, password, email):
         SecretHash=secretHash(client_id, client_secret, username),
         UserAttributes=[{"Name": "email", "Value": email}]
     )
+    print(response)
     return response
 
 if __name__ == "__main__":
