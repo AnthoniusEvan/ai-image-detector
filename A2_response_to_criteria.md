@@ -26,23 +26,23 @@ Overview
 
 - **AWS service name:**  S3
 - **What data is being stored?:** Image files uploaded by users
-- **Why is this service suited to this data?:** [eg. large files are best suited to blob storage due to size restrictions on other services]
-- **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**
-- **Video timestamp:**
+- **Why is this service suited to this data?:** Lets the app store and retrieve images easily
+- **Why is are the other services used not suitable for this data?:** DynamoDB cant store binary files (images)
+- **Bucket/instance/table name:** ai-detector-image-uploads
+- **Video timestamp:** 0:00 - 0:33
 - **Relevant files:**
-    -
+    - aws_related/s3.py
 
 ### Core - Second data persistence service
 
 - **AWS service name:**  DynamoDB
 - **What data is being stored?:** Users account and image metadata 
-- **Why is this service suited to this data?:**
-- **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**
-- **Video timestamp:**
+- **Why is this service suited to this data?:**  DynamoDB is specifically used to store key-value data, unlike S3
+- **Why is are the other services used not suitable for this data?:** S3 does not support structured fields
+- **Bucket/instance/table name:** n11671025-images2
+- **Video timestamp:** 0:35 - 1:10
 - **Relevant files:**
-    -
+    - aws_related/dynamo.py
 
 ### Third data service
 
@@ -122,22 +122,24 @@ Overview
 
 ### Core - DNS with Route53
 
-- **Subdomain**:  [ai-image-detector.cab432.com](https://ai-image-detector.cab432.com/)
-- **Video timestamp:**
+- **Subdomain**: https://ai-image-detector.cab432.com/
+- **Video timestamp:** 6:54 - 7:06
 
 ### Parameter store
 
-- **Parameter names:** [eg. n1234567/base_url]
-- **Video timestamp:**
+- **Parameter names:** /n11671025/imagedetector
+- **Video timestamp:** 7:11 -7:38
 - **Relevant files:**
-    -
+    - model.py
+    - s3.py(load_model)
 
 ### Secrets manager
 
-- **Secrets names:** [eg. n1234567-youtube-api-key]
-- **Video timestamp:**
+- **Secrets names:** n11671025-Assignment2
+- **Video timestamp:** 7:38 - 7:57
 - **Relevant files:**
-    -
+    - secret.py
+    - main.py
 
 ### Infrastructure as code
 
