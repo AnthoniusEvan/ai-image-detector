@@ -46,7 +46,6 @@ def _key(id_: str):
 
 
 def ensure_all():
-    # Users table
     if not _exists(USERS_TABLE):
         _client.create_table(
             TableName=USERS_TABLE,
@@ -70,7 +69,6 @@ def ensure_all():
         )
         _tbl(USERS_TABLE).wait_until_exists()
 
-    # Images table
     if not _exists(IMAGES_TABLE):
         _client.create_table(
             TableName=IMAGES_TABLE,
@@ -87,7 +85,6 @@ def ensure_all():
         )
         _tbl(IMAGES_TABLE).wait_until_exists()
 
-    # Accuracy table
     if not _exists(ACCURACY_TABLE):
         _client.create_table(
             TableName=ACCURACY_TABLE,
@@ -113,7 +110,6 @@ def bootstrap_default_users():
     except Exception:
         pass
 
-# Users DAO
 def users_insert(id: str, username: str, is_admin: int, default_password: str = "password"):
     t = _tbl(USERS_TABLE)
     existing = _query_user_by_username(username)
@@ -131,7 +127,6 @@ def users_insert(id: str, username: str, is_admin: int, default_password: str = 
     try:
         t.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
     except:
-        # user already exists, ignore
         pass
     return {"id": id, "username": username, "is_admin": int(bool(is_admin))}
 
@@ -162,8 +157,6 @@ def _query_user_by_username(username: str):
     )
     items = res.get("Items", [])
     return items[0] if items else None
-
-# Images DAO
 
 def images_insert(filename: str, s3_key: str, user_id: str, prediction: str, confidence):
     t = _tbl(IMAGES_TABLE)
