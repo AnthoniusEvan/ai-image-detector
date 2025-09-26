@@ -58,7 +58,7 @@ Overview
 ### S3 Pre-signed URLs
 
 - **S3 Bucket names:** ai-detector-image-uploads
-- **Video timestamp:**
+- **Video timestamp:** 1:18 - 1:57
 - **Relevant files:**
     - aws_related/s3.py
 
@@ -67,7 +67,7 @@ Overview
 - **ElastiCache instance name:** ai-image-detector-memcache
 - **What data is being cached?:** The results obtained from the prediction
 - **Why is this data likely to be accessed frequently?:** There might be some controversial images that is hard to distinguish between real or AI, and the same images are being uploaded by multiple users
-- **Video timestamp:**
+- **Video timestamp:** 2:00 - 3:16
 - **Relevant files:**
     - aws_related/memcached.py
 
@@ -85,8 +85,8 @@ Overview
 
 ### Graceful handling of persistent connections
 
-- **Type of persistent connection and use:** [eg. server-side-events for progress reporting]
-- **Method for handling lost connections:** [eg. client responds to lost connection by reconnecting and indicating loss of connection to user until connection is re-established ]
+- **Type of persistent connection and use:**
+- **Method for handling lost connections:** 
 - **Relevant files:**
     -
 
@@ -94,29 +94,29 @@ Overview
 ### Core - Authentication with Cognito
 
 - **User pool name:** ai-image-detector-user-pool
-- **How are authentication tokens handled by the client?:** Response to login request sets a value in the session middleware containing the user info token.
-- **Video timestamp:**
+- **How are authentication tokens handled by the client?:** Response to login request sets a key-value pair in the session middleware containing the user info token on the key 'user'.
+- **Video timestamp:** 3:17 - 4:15
 - **Relevant files:**
     - app/main.py -> authorize()
 
 ### Cognito multi-factor authentication
 
 - **What factors are used for authentication:** Email verification code
-- **Video timestamp:**
+- **Video timestamp:** 4:23 - 5:05
 - **Relevant files:**
     - aws/cognito/signUp.py
 
 ### Cognito federated identities
 
 - **Identity providers used:** Google
-- **Video timestamp:**
+- **Video timestamp:** 5:06 - 5:28
 - **Relevant files:**
     - 
 
 ### Cognito groups
 
 - **How are groups used to set permissions?:** 'Admin' users can view uploaded images
-- **Video timestamp:**
+- **Video timestamp:** 5:29 - 6:50
 - **Relevant files:**
     - app/main.py -> is_user_admin(user)
 
@@ -143,11 +143,11 @@ Overview
 
 ### Infrastructure as code
 
-- **Technology used:**
-- **Services deployed:**
+- **Technology used:** 
+- **Services deployed:** 
 - **Video timestamp:**
 - **Relevant files:**
-    -
+    - 
 
 ### Other (with prior approval only)
 
