@@ -85,10 +85,13 @@ Overview
 
 ### Graceful handling of persistent connections
 
-- **Type of persistent connection and use:**
-- **Method for handling lost connections:** 
+- **Type of persistent connection and use:** The app uses a "health" check every few seconds to show connection status and if connection recovers, the app will recover gracefully.
+- **Method for handling lost connections:** Server pings every few seconds and if connection is lost and user attempts to continue, there will be an alert
+
 - **Relevant files:**
-    -
+    - main.py
+    - public/index.js
+    - public/index.html
 
 
 ### Core - Authentication with Cognito

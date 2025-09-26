@@ -329,3 +329,7 @@ async def logout():
     response = JSONResponse(content={"message": "Logged out"})
     response.delete_cookie(key="authToken", path="/")
     return response
+
+@app.get("/health")
+def health():
+    return {"ok": True}
