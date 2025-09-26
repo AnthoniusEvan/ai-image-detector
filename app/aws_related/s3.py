@@ -1,4 +1,3 @@
-# app/aws_related/s3.py
 import os
 import re
 import io
@@ -9,8 +8,7 @@ import torch
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
 
-# Model key can come from SSM Parameter Store (tutorial style)
-SSM_PARAM_MODEL_KEY = os.getenv("SSM_PARAM_MODEL_KEY")  # e.g. /n11671025/aipic/model_key
+SSM_PARAM_MODEL_KEY = os.getenv("SSM_PARAM_MODEL_KEY")
 _env_model_key_default = os.getenv("AWS_S3_MODEL_KEY", "model/model.pth")
 
 _session = boto3.session.Session(region_name=AWS_REGION)
@@ -27,7 +25,6 @@ def _get_model_key() -> str:
         resp = _ssm.get_parameter(Name=SSM_PARAM_MODEL_KEY, WithDecryption=False)
         return resp["Parameter"]["Value"] or _env_model_key_default
     except ClientError:
-        # Fallback if SSM param missing / no perms
         return _env_model_key_default
 
 def put_image_to_s3(filename: str, image_id: str, data: bytes) -> str:

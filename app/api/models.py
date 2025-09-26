@@ -2,13 +2,8 @@ from fastapi import Query
 from aws_related import dynamo
 
 def insert_user(id, username, is_admin):
-    try:
-        return dynamo.users_insert(id, username, is_admin)
-    except:
-        # user already exists, ignore
-        pass
+    return dynamo.users_insert(id, username, is_admin)
     
-
 def get_user(username, password):
     return dynamo.users_get_id_by_credentials(username, password)
 

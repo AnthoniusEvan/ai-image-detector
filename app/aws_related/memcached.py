@@ -20,9 +20,7 @@ def predict_image(image_bytes: bytes):
     if cache:
         try:
             cached_result = cache.get(image_hash)
-            if cached_result:
-
-                print('Found cache')    
+            if cached_result: 
                 label, confidence = cached_result.decode().split("|")
                 return label, float(confidence)
         except Exception:
@@ -32,7 +30,6 @@ def predict_image(image_bytes: bytes):
     label, confidence = detector.predict(tensor)
     if cache:
         try:
-            print('setting cache')
             cache.set(image_hash, f"{label}|{confidence}", expire=86400)
         except Exception:
             pass

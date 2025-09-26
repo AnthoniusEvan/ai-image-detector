@@ -1,38 +1,30 @@
-# app/main.py
-from io import BytesIO
 import os
 import random
 import json
 import urllib.request
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends, Cookie, Query
+from io import BytesIO
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends, Query
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
-from api.controllers import set_user_prediction
 from app.aws_related.memcached import predict_image
 from schemas import DetectionResponse
 from api.models import *
-from aws_related import s3
-import os
-import urllib.request
-import json
 from PIL import Image
 from aws.cognito.signUp import signup
 from aws.cognito.confirm import confirm
 from dotenv import load_dotenv
+from app.api.controllers import set_user_prediction
+from app.aws_related import dynamo, s3
+from app.aws_related.secret import get_jwt_secret
+from app.schemas import DetectionResponse
+
 
 load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
 COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
-
-from app.api.controllers import set_user_prediction
-from app.aws_related import dynamo, s3
-from app.aws_related.secret import get_jwt_secret
-from app.utils import preprocess_image
-from app.model import detector
-from app.schemas import DetectionResponse
 
 app = FastAPI(
     title="AI Image Detector",

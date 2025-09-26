@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
-QUT_USERNAME = os.getenv("QUT_USERNAME")  # e.g. n11671025@qut.edu.au
+QUT_USERNAME = os.getenv("QUT_USERNAME")
 PK_NAME = "qut-username"
 
 USERS_TABLE = os.getenv("DDB_TABLE_USERS", "ai_image_users")
@@ -44,10 +44,9 @@ def _hash(pw: str) -> str:
 def _key(id_: str):
     return {PK_NAME: QUT_USERNAME, "id": id_}
 
-# --- Provisioning -------------------------------------------------------------
 
 def ensure_all():
-    # USERS
+    # Users table
     if not _exists(USERS_TABLE):
         _client.create_table(
             TableName=USERS_TABLE,
@@ -71,7 +70,7 @@ def ensure_all():
         )
         _tbl(USERS_TABLE).wait_until_exists()
 
-    # IMAGES
+    # Images table
     if not _exists(IMAGES_TABLE):
         _client.create_table(
             TableName=IMAGES_TABLE,
@@ -88,7 +87,7 @@ def ensure_all():
         )
         _tbl(IMAGES_TABLE).wait_until_exists()
 
-    # ACCURACY
+    # Accuracy table
     if not _exists(ACCURACY_TABLE):
         _client.create_table(
             TableName=ACCURACY_TABLE,
@@ -114,8 +113,7 @@ def bootstrap_default_users():
     except Exception:
         pass
 
-# --- Users --------------------------------------------------------------------
-
+# Users DAO
 def users_insert(id: str, username: str, is_admin: int, default_password: str = "password"):
     t = _tbl(USERS_TABLE)
     existing = _query_user_by_username(username)
@@ -156,7 +154,6 @@ def users_is_admin(user_id: str) -> bool:
     return bool(res.get("Item", {}).get("is_admin", 0))
 
 def _query_user_by_username(username: str):
-    # Do not use GSI (student role can't query GSIs). Query base table by partition and filter.
     t = _tbl(USERS_TABLE)
     res = t.query(
         KeyConditionExpression=Key(PK_NAME).eq(QUT_USERNAME),
@@ -166,12 +163,11 @@ def _query_user_by_username(username: str):
     items = res.get("Items", [])
     return items[0] if items else None
 
-# --- Images -------------------------------------------------------------------
+# Images DAO
 
 def images_insert(filename: str, s3_key: str, user_id: str, prediction: str, confidence):
     t = _tbl(IMAGES_TABLE)
     image_id = str(uuid.uuid4())
-    # DynamoDB wants Decimal, not float
     conf_attr = Decimal(str(confidence)) if confidence is not None else None
     item = {
         PK_NAME: QUT_USERNAME,
@@ -184,7 +180,6 @@ def images_insert(filename: str, s3_key: str, user_id: str, prediction: str, con
         "user_prediction": None,
         "uploaded_at": _now_iso(),
     }
-    # Remove None attributes (DynamoDB rejects empty values)
     item = {k: v for k, v in item.items() if v is not None}
     t.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
     return {"id": image_id}
