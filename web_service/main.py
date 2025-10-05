@@ -2,6 +2,7 @@ import os
 import random
 import json
 import urllib.request
+import httpx
 from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Depends, Query
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, StreamingResponse
@@ -10,11 +11,11 @@ from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
 from app.aws_related.memcached import predict_image
-from schemas import DetectionResponse
-from api.models import *
+from app.schemas import DetectionResponse
+from app.api.models import *
 from PIL import Image
-from aws.cognito.signUp import signup
-from aws.cognito.confirm import confirm
+from app.aws.cognito.signUp import signup
+from app.aws.cognito.confirm import confirm
 from dotenv import load_dotenv
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
@@ -25,6 +26,8 @@ from app.schemas import DetectionResponse
 load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
 COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
+
+PREDICTOR_URL = os.environ.get("PREDICTOR_URL", "http://localhost:8001/predict")
 
 app = FastAPI(
     title="AI Image Detector",
@@ -106,14 +109,18 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
     try:
         if not file:
             raise HTTPException(status_code=401, detail="No image file attached")
-        content_type = file.content_type
-        if content_type not in ["image/png", "image/jpeg", "image/jpg"]:
-            raise HTTPException(status_code=400, detail="Invalid image format. Only PNG/JPEG allowed.")
+ 
         file_content = await file.read()
-        if len(file_content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large (max 10MB).")
+        async with httpx.AsyncClient() as client:
+            files = {"file": (file.filename, file_content, file.content_type)}
+            response = await client.post(PREDICTOR_URL, files=files)
 
-        label, confidence = predict_image(file_content)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        result = response.json()
+        label = result["prediction"]
+        confidence = result["confidence"]
 
         image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
         s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
@@ -129,14 +136,18 @@ async def detect_image_simple(request: Request, file: UploadFile = File(...)):
     try:
         if not file:
             raise HTTPException(status_code=401, detail="No image file attached")
-        content_type = file.content_type
-        if content_type not in ["image/png", "image/jpeg", "image/jpg"]:
-            raise HTTPException(status_code=400, detail="Invalid image format. Only PNG/JPEG allowed.")
-        file_content = await file.read()
-        if len(file_content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large (max 10MB).")
+        
+        async with httpx.AsyncClient() as client:
+            files = {"file": (file.filename, await file.read(), file.content_type)}
+            response = await client.post(PREDICTOR_URL, files=files)
 
-        label, confidence = predict_image(file_content)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        result = response.json()
+        label = result["prediction"]
+        confidence = result["confidence"]
+
         return DetectionResponse(prediction=label, confidence=confidence)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
