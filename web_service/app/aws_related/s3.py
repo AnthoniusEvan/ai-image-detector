@@ -3,7 +3,6 @@ import re
 import io
 import boto3
 from botocore.exceptions import ClientError
-import torch
 
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
@@ -50,12 +49,3 @@ def delete_image_from_s3(filename: str, image_id: str):
         _s3.delete_object(Bucket=S3_BUCKET, Key=key)
     except ClientError:
         pass
-
-def load_model():
-    buf = io.BytesIO()
-    model_key = _get_model_key()
-    obj = _s3.get_object(Bucket=S3_BUCKET, Key=model_key)
-    buf.write(obj["Body"].read())
-    buf.seek(0)
-    state = torch.load(buf, map_location="cpu")
-    return state

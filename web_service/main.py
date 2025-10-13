@@ -10,8 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import urlparse
 from pydantic import BaseModel
-from app.aws_related.memcached import predict_image
-from app.schemas import DetectionResponse
 from app.api.models import *
 from PIL import Image
 from app.aws.cognito.signUp import signup
@@ -20,8 +18,6 @@ from dotenv import load_dotenv
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
 from app.aws_related.secret import get_jwt_secret
-from app.schemas import DetectionResponse
-
 
 load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
@@ -104,7 +100,7 @@ async def detect_page(user=Depends(browser_auth)):
     return FileResponse(os.path.join(directory_path, "index.html"))
 
 
-@app.post("/detect", response_model=DetectionResponse)
+@app.post("/detect")
 async def detect_image(request: Request, user=Depends(authenticate_token), file: UploadFile = File(...)):
     try:
         if not file:
@@ -130,27 +126,6 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/detect-image", response_model=DetectionResponse)
-async def detect_image_simple(request: Request, file: UploadFile = File(...)):
-    try:
-        if not file:
-            raise HTTPException(status_code=401, detail="No image file attached")
-        
-        async with httpx.AsyncClient() as client:
-            files = {"file": (file.filename, await file.read(), file.content_type)}
-            response = await client.post(PREDICTOR_URL, files=files)
-
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail=response.text)
-
-        result = response.json()
-        label = result["prediction"]
-        confidence = result["confidence"]
-
-        return DetectionResponse(prediction=label, confidence=confidence)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 def extract_s3_key(s3_url: str) -> str:
