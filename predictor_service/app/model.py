@@ -24,4 +24,4 @@ class AIImageDetector:
             label = "AI-generated" if predicted_class.item() == 1 else "Real"
             return label, confidence.item()
 
-detector = AIImageDetector(model_path="model.pth")
+detector = AIImageDetector(model_path="./app/model.pth")
