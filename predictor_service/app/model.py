@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from s3 import load_model
 from torchvision import models
 
 torch.set_num_threads(2)
@@ -11,8 +10,7 @@ class AIImageDetector:
         self.model = models.resnet50()
         self.model.fc = nn.Linear(self.model.fc.in_features, 2)
         if model_path:
-            if model_path == "image":
-                self.model.load_state_dict(load_model())
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.model.eval()
 
     def predict(self, tensor):
@@ -26,4 +24,4 @@ class AIImageDetector:
             label = "AI-generated" if predicted_class.item() == 1 else "Real"
             return label, confidence.item()
 
-detector = AIImageDetector(model_path="image")
+detector = AIImageDetector(model_path="model.pth")
