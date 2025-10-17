@@ -101,7 +101,7 @@ async def detect_page(user=Depends(browser_auth)):
 
 
 @app.post("/detect")
-async def detect_image(request: Request, user=Depends(authenticate_token), file: UploadFile = File(...)):
+async def detect_image(request: Request, file: UploadFile = File(...)):
     try:
         if not file:
             raise HTTPException(status_code=401, detail="No image file attached")
@@ -118,11 +118,13 @@ async def detect_image(request: Request, user=Depends(authenticate_token), file:
         label = result["prediction"]
         confidence = result["confidence"]
 
-        image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
-        s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
-        dynamo.images_update_s3_key(image_id, s3_key)
+        return HTTPException(detail=label+','+confidence)
 
-        return RedirectResponse(url=f"/result/{image_id}", status_code=303)
+        # image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
+        # s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
+        # dynamo.images_update_s3_key(image_id, s3_key)
+
+        # return RedirectResponse(url=f"/result/{image_id}", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -184,7 +186,7 @@ async def logout(request: Request):
 async def main_page(request: Request):
     user = request.session.get('user')
     print(user)
-    if user:
+    if True:
         return FileResponse(os.path.join(directory_path, 'index.html'))
     else:
         return RedirectResponse(url="/login")

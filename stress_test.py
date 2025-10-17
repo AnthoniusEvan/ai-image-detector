@@ -4,10 +4,10 @@ import requests
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-URL = "http://3.25.221.126:8080/detect-image"
+URL = "http://ai-image-detector-autoscale-217320775.ap-southeast-2.elb.amazonaws.com/predict"
 IMAGE_PATH = "img.png"
-CONCURRENT = 10          # number of simultaneous workers
-DURATION = 300          # run for 5 minutes (in seconds)
+CONCURRENT = 1          # number of simultaneous workers
+DURATION = 10          # run for 5 minutes (in seconds)
 
 with open(IMAGE_PATH, "rb") as f:
     IMAGE_BYTES = f.read()

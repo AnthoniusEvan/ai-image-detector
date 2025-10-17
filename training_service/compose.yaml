@@ -1,0 +1,8 @@
+services:
+  ai-trainer:
+    build: .
+    env_file:
+      - .env
+    command: python /app/train.py
+    volumes:
+      - ./train.py:/app/train.py

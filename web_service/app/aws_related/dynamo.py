@@ -17,18 +17,18 @@ USERS_TABLE = os.getenv("DDB_TABLE_USERS", "ai_image_users")
 IMAGES_TABLE = os.getenv("DDB_TABLE_IMAGES", "ai_image_images")
 ACCURACY_TABLE = os.getenv("DDB_TABLE_ACCURACY", "ai_image_accuracy")
 
-_session = boto3.session.Session(region_name=AWS_REGION)
-_dynamodb = _session.resource("dynamodb")
-_client = _session.client("dynamodb")
+def get_aws_resource(resource):
+    return boto3.resource(resource, region_name=AWS_REGION)
 
-dynamo = _dynamodb
+def get_aws_client(service):
+    return boto3.client(service, region_name=AWS_REGION)
 
 def _tbl(name: str):
-    return _dynamodb.Table(name)
+    return get_aws_resource('dynamodb').Table(name)
 
 def _exists(name: str) -> bool:
     try:
-        _client.describe_table(TableName=name)
+        get_aws_client('dynamodb').describe_table(TableName=name)
         return True
     except ClientError as e:
         if e.response["Error"]["Code"] in ("ResourceNotFoundException", "ValidationException"):
@@ -47,7 +47,7 @@ def _key(id_: str):
 
 def ensure_all():
     if not _exists(USERS_TABLE):
-        _client.create_table(
+        get_aws_client('dynamodb').create_table(
             TableName=USERS_TABLE,
             AttributeDefinitions=[
                 {"AttributeName": PK_NAME, "AttributeType": "S"},
@@ -70,7 +70,7 @@ def ensure_all():
         _tbl(USERS_TABLE).wait_until_exists()
 
     if not _exists(IMAGES_TABLE):
-        _client.create_table(
+        get_aws_client('dynamodb').create_table(
             TableName=IMAGES_TABLE,
             AttributeDefinitions=[
                 {"AttributeName": PK_NAME, "AttributeType": "S"},
@@ -86,7 +86,7 @@ def ensure_all():
         _tbl(IMAGES_TABLE).wait_until_exists()
 
     if not _exists(ACCURACY_TABLE):
-        _client.create_table(
+        get_aws_client('dynamodb').create_table(
             TableName=ACCURACY_TABLE,
             AttributeDefinitions=[
                 {"AttributeName": PK_NAME, "AttributeType": "S"},
