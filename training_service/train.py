@@ -4,7 +4,7 @@ import torch
 from torchvision import datasets, transforms, models
 from torch import nn, optim
 from boto3.dynamodb.conditions import Attr
-import shutil, json
+import shutil
 
 label_map = {
     "AI-generated": "ai",
@@ -22,13 +22,10 @@ s3 = boto3.client("s3", region_name=REGION)
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 
 t = dynamodb.Table(DDB_TABLE_BATCH)
-response = t.scan(
-    FilterExpression=Attr("batch_id").eq('current'),
-    Limit=1
-)
-items = response.get("Items", [])
+response = t.get_item(Key={'batch_id':'current'})
+items = response.get("Item", {})
 
-S3_IMAGES = items[0]['s3_keys'] if items and items[0] else None
+S3_IMAGES = items.get("s3_keys") if items else None
 
 if not S3_IMAGES:
     raise ValueError("Missing required environment variable S3_IMAGES")
