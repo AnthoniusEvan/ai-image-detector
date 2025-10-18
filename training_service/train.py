@@ -4,7 +4,7 @@ import torch
 from torchvision import datasets, transforms, models
 from torch import nn, optim
 from boto3.dynamodb.conditions import Attr
-import shutil
+import shutil, json
 
 label_map = {
     "AI-generated": "ai",
@@ -12,19 +12,28 @@ label_map = {
 }
 
 # --- ENV VARS ---
-S3_BUCKET = os.getenv("S3_BUCKET")
-S3_IMAGES = os.getenv("S3_IMAGES", "")
+S3_BUCKET = os.getenv("S3_BUCKET", "ai-detector-image-uploads")
 TABLE_NAME = os.getenv("DDB_TABLE", "n11671025-images2")
+DDB_TABLE_BATCH = os.getenv("DDB_TABLE_BATCH", "ai-image-detector-new-batch")
 REGION = os.getenv("REGION", 'ap-southeast-2')
 
-if not S3_BUCKET or not S3_IMAGES:
-    raise ValueError("Missing required environment variables S3_BUCKET or S3_IMAGES")
+# --- AWS CLIENTS ---
+s3 = boto3.client("s3", region_name=REGION)
+dynamodb = boto3.resource('dynamodb', region_name=REGION)
+
+t = dynamodb.Table(DDB_TABLE_BATCH)
+response = t.scan(
+    FilterExpression=Attr("batch_id").eq('current'),
+    Limit=1
+)
+items = response.get("Items", [])
+
+S3_IMAGES = items[0]['s3_keys'] if items and items[0] else None
+
+if not S3_IMAGES:
+    raise ValueError("Missing required environment variable S3_IMAGES")
 
 s3_keys = [key.strip() for key in S3_IMAGES.split(",") if key.strip()]
-
-# --- AWS CLIENTS ---
-s3 = boto3.client("s3")
-dynamodb = boto3.resource('dynamodb', region_name=REGION)
 
 # --- LOCAL DIR SETUP ---
 base_dir = "/tmp/data"
@@ -117,6 +126,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 # --- TRAIN LOOP ---
 print(f"Starting fine-tuning on {len(train_ds)} images...")
 for epoch in range(3):
+    break
+
     total_loss = 0
     for imgs, labels in train_loader:
         imgs, labels = imgs.to(device), labels.to(device)
