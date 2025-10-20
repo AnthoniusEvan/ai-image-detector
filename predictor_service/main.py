@@ -6,7 +6,7 @@ import httpx, os
 
 load_dotenv()
 
-IMAGE_PROCESSING_URL = os.environ.get("PREDICTOR_URL", "http://localhost:8001/preprocess-image/upload")
+IMAGE_PROCESSING_URL = os.environ.get("PREDICTOR_URL", "http://ai-image-preprocessing-alb-462414009.ap-southeast-2.elb.amazonaws.com/upload")
 
 app = FastAPI(
     title="AI Image Detector - Predictor Service",

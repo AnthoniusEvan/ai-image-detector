@@ -30,3 +30,6 @@ async def preprocess_upload(file: UploadFile):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process image: {e}")
 
+@app.get("/health")
+def health():
+    return {"ok": True}
