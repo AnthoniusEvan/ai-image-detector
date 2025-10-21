@@ -6,7 +6,7 @@ import httpx, os
 
 load_dotenv()
 
-IMAGE_PROCESSING_URL = os.environ.get("PREDICTOR_URL", "http://ai-image-preprocessing-alb-462414009.ap-southeast-2.elb.amazonaws.com/upload")
+IMAGE_PROCESSING_URL = os.environ.get("PREPROCCESSING_URL", "http://ai-image-preprocessing-alb-462414009.ap-southeast-2.elb.amazonaws.com:8080/upload")
 
 app = FastAPI(
     title="AI Image Detector - Predictor Service",
@@ -39,7 +39,7 @@ async def predict(file: UploadFile = File(...)):
         tensor = result['tensor']
 
         # Perform prediction (CPU intensive)
-        label, confidence = predict_image(tensor)
+        label, confidence = predict_image(data, tensor)
 
         return JSONResponse({
             "prediction": label,
@@ -47,7 +47,13 @@ async def predict(file: UploadFile = File(...)):
         })
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
+        print("Internal Error type:", type(e).__name__)
+        print("Internal Error repr:", repr(e))
+        if hasattr(e, 'detail'):
+            print("HTTPException detail:", e.detail)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {repr(e)}")
 
 @app.get("/health")
 def health():

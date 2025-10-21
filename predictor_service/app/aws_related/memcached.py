@@ -15,8 +15,8 @@ def get_image_hash(image_bytes: bytes) -> str:
     return hashlib.sha256(image_bytes).hexdigest()
 
 
-def predict_image(tensor):
-    image_hash = get_image_hash(tensor)
+def predict_image(image_bytes, tensor):
+    image_hash = get_image_hash(image_bytes)
     label, confidence = None, None
     if cache:
         try:
