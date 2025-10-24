@@ -18,12 +18,19 @@ from dotenv import load_dotenv
 from app.api.controllers import set_user_prediction
 from app.aws_related import dynamo, s3
 from app.aws_related.secret import get_jwt_secret
+import boto3
+from botocore.exceptions import ClientError
 
 load_dotenv()
 COGNITO_CLIENT_ID = os.environ['AWS_COGNITO_CLIENT_ID']
 COGNITO_CLIENT_SECRET = os.environ['AWS_COGNITO_CLIENT_SECRET']
 
 PREDICTOR_URL = os.environ.get("PREDICTOR_URL", "http://localhost:8001/predict")
+
+AWS_REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
+SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+SQS_DLQ_URL   = os.environ.get("SQS_DLQ_URL")
+sqs = boto3.client("sqs", region_name=AWS_REGION)
 
 app = FastAPI(
     title="AI Image Detector",
@@ -84,6 +91,90 @@ class FeedbackRequest(BaseModel):
     model_prediction: str
     user_agrees: bool
 
+def sqs_enqueue_event(event: dict):
+    if not SQS_QUEUE_URL:
+        print("[sqs] SQS_QUEUE_URL not set; skipping enqueue.")
+        return {"queued": False, "reason": "no queue configured"}
+    body = json.dumps(event)
+    try:
+        resp = sqs.send_message(
+            QueueUrl=SQS_QUEUE_URL,
+            MessageBody=body
+        )
+        print(f"[sqs] Enqueued messageId={resp.get('MessageId')} body={body}")
+        return {"queued": True, "messageId": resp.get("MessageId")}
+    except ClientError as e:
+        print(f"[sqs] send_message error: {e}")
+        return {"queued": False, "error": str(e)}
+
+def sqs_process_one(mode: str = "ok"):
+    if not SQS_QUEUE_URL:
+        return {"processed": False, "reason": "no queue configured"}
+    resp = sqs.receive_message(
+        QueueUrl=SQS_QUEUE_URL,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=2,
+        AttributeNames=["ApproximateReceiveCount"]
+    )
+    msgs = resp.get("Messages", [])
+    if not msgs:
+        return {"processed": False, "reason": "no messages"}
+    msg = msgs[0]
+    receipt = msg["ReceiptHandle"]
+    body = msg.get("Body")
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = {"raw": body}
+    approx_rc = msg.get("Attributes", {}).get("ApproximateReceiveCount")
+    force_fail = False
+    if isinstance(data, dict):
+        force_fail = bool(data.get("force_fail"))
+    should_fail = (mode == "fail") or force_fail
+    if should_fail:
+        print(f"[sqs] Simulated FAIL for message (ApproxReceiveCount={approx_rc}) body={body}")
+        return {"processed": False, "failed": True, "approx_receive_count": approx_rc, "message": data}
+    sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt)
+    print(f"[sqs] Deleted (success) message body={body}")
+    return {"processed": True, "message": data, "approx_receive_count": approx_rc}
+
+def sqs_peek_dlq():
+    if not SQS_DLQ_URL:
+        return {"dlq": False, "reason": "no DLQ configured"}
+    resp = sqs.receive_message(
+        QueueUrl=SQS_DLQ_URL,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=2,
+        AttributeNames=["ApproximateReceiveCount"]
+    )
+    msgs = resp.get("Messages", [])
+    if not msgs:
+        return {"dlq": True, "message": None, "reason": "empty"}
+    msg = msgs[0]
+    body = msg.get("Body")
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = {"raw": body}
+    print(f"[sqs] DLQ message (peek) body={body}")
+    return {"dlq": True, "message": data}
+
+def sqs_purge_dlq_one():
+    if not SQS_DLQ_URL:
+        return {"purged": False, "reason": "no DLQ configured"}
+    resp = sqs.receive_message(
+        QueueUrl=SQS_DLQ_URL,
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=2
+    )
+    msgs = resp.get("Messages", [])
+    if not msgs:
+        return {"purged": False, "reason": "DLQ empty"}
+    msg = msgs[0]
+    receipt = msg["ReceiptHandle"]
+    sqs.delete_message(QueueUrl=SQS_DLQ_URL, ReceiptHandle=receipt)
+    print("[sqs] Deleted one message from DLQ")
+    return {"purged": True}
 
 @app.post("/user/set_feedback")
 async def set_user_feedback(feedback: FeedbackRequest, user=Depends(authenticate_token)):
@@ -94,43 +185,42 @@ async def set_user_feedback(feedback: FeedbackRequest, user=Depends(authenticate
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/detect")
 async def detect_page(user=Depends(browser_auth)):
     return FileResponse(os.path.join(directory_path, "index.html"))
-
 
 @app.post("/detect")
 async def detect_image(request: Request, user=Depends(browser_auth), file: UploadFile = File(...)):
     try:
         if not file:
             raise HTTPException(status_code=401, detail="No image file attached")
- 
         file_content = await file.read()
         async with httpx.AsyncClient() as client:
             files = {"file": (file.filename, file_content, file.content_type)}
             response = await client.post(PREDICTOR_URL, files=files)
-
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.text)
-
         result = response.json()
         label = result["prediction"]
         confidence = result["confidence"]
-
         image_id = dynamo.images_insert(file.filename, "", user["sub"], label, confidence).get("id")
         s3_key = s3.put_image_to_s3(file.filename, image_id, file_content)
         dynamo.images_update_s3_key(image_id, s3_key)
-
+        force_fail = request.query_params.get("fail") == "1"
+        sqs_enqueue_event({
+            "type": "image_processed",
+            "image_id": image_id,
+            "prediction": label,
+            "confidence": confidence,
+            "s3_key": s3_key,
+            "force_fail": force_fail
+        })
         return RedirectResponse(url=f"/result/{image_id}", status_code=303)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 def extract_s3_key(s3_url: str) -> str:
     return urlparse(s3_url).path.lstrip("/")
-
 
 @app.get("/result/{image_id}", response_class=HTMLResponse)
 async def result_page(image_id: str, request: Request, user=Depends(browser_auth)):
@@ -154,6 +244,7 @@ async def result_page(image_id: str, request: Request, user=Depends(browser_auth
     )
 
 PUBLIC_DOMAIN = "https://ai-image-detector.cab432.com"
+
 @app.get("/login")
 async def login(request: Request):
     redirect_uri = f"{PUBLIC_DOMAIN}/authorize"
@@ -163,7 +254,6 @@ async def login(request: Request):
 async def authorize(request: Request):
     token = await oauth.oidc.authorize_access_token(request) 
     user = token['userinfo']
-
     insert_user(user.get('sub'), user.get('cognito:username'), 0)
     request.session['user'] = user 
     return RedirectResponse(url="/")
@@ -179,16 +269,11 @@ async def logout(request: Request):
     )
     return RedirectResponse(url=cognito_logout_url)
 
-
 @app.get('/')
 async def main_page(request: Request):
     user = request.session.get('user')
     print(user)
-    if True:
-        return FileResponse(os.path.join(directory_path, 'index.html'))
-    else:
-        return RedirectResponse(url="/login")
-    
+    return FileResponse(os.path.join(directory_path, 'index.html'))
 
 @app.get('/index')
 async def index_page(request: Request):
@@ -197,26 +282,23 @@ async def index_page(request: Request):
         return FileResponse(os.path.join(directory_path, 'index.html'))
     else:
         return HTMLResponse("<h2>AI Image Detector</h2><p>To use this service please <a href='/login'>login</a></p><a href='/signup'>Sign up</a>")
-    
 
 @app.get('/signup')
 async def index_page(request: Request):
     return FileResponse(os.path.join(directory_path, 'signUp.html'))
-    
+
 @app.post('/signup')
 async def sign_up(request: Request):
     data = await request.json()
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-   
     try:
         result = signup(username, password, email)
         return {"detail": "Sign up successful. Please check your email for the confirmation code."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
- 
 @app.post('/confirm')
 async def sign_up(request: Request):
     data = await request.json()
@@ -228,14 +310,6 @@ async def sign_up(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    
-
-
-@app.get("/")
-async def main_page():
-    return FileResponse(os.path.join(directory_path, "index.html"))
-
-
 @app.get("/admin")
 async def admin_page(user=Depends(browser_auth)):
     is_admin = is_user_admin(user)
@@ -243,14 +317,13 @@ async def admin_page(user=Depends(browser_auth)):
         raise HTTPException(status_code=403, detail="Unauthorised user requested admin content.")
     return FileResponse(os.path.join(directory_path, "admin.html"))
 
-
 @app.get("/admin/uploads")
 async def admin_uploads(
     user=Depends(browser_auth),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("uploaded_at"),
-    order: str = Query("desc", regex="^(asc|desc)$"),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
     username: str | None = None,
     prediction: str | None = None,
 ):
@@ -260,14 +333,12 @@ async def admin_uploads(
     allowed_sort_fields = ["uploaded_at", "id", "filename", "prediction", "image_id"]
     if sort_by not in allowed_sort_fields:
         raise HTTPException(status_code=400, detail="Invalid sort field")
-
     images = dynamo.images_list(limit, offset, sort_by, order, username, prediction)
     for img in images:
         img["image_url"] = s3.get_image_from_s3_presigned_url(img["s3_key"])
         uid = img.get("user_id")
         img["username"] = dynamo.users_get_username_by_id(uid) if uid else None
     return images
-
 
 @app.get("/game/image")
 def get_game_image(user=Depends(browser_auth)):
@@ -282,22 +353,19 @@ def get_game_image(user=Depends(browser_auth)):
     else:
         with urllib.request.urlopen(url) as res:
             data = res.read()
-
     img = Image.open(BytesIO(data)).convert("RGB")
     img = img.resize((200, 200))
     buf = BytesIO()
     img.save(buf, format="JPEG")
     buf.seek(0)
     response = StreamingResponse(buf, media_type="image/jpeg")
-    response.headers["user_id"] = str(user["cognito:username"])
+    response.headers["user_id"] = "demo"
     response.headers["answer"] = answer
     return response
-
 
 @app.get("/game")
 async def game_page(user=Depends(browser_auth)):
     return FileResponse(os.path.join(directory_path, "game.html"))
-
 
 @app.post("/user/save_accuracy")
 async def save_accuracy(request: Request, user=Depends(browser_auth)):
@@ -309,7 +377,6 @@ async def save_accuracy(request: Request, user=Depends(browser_auth)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
 
-
 @app.get("/logout")
 async def logout():
     response = JSONResponse(content={"message": "Logged out"})
@@ -319,3 +386,21 @@ async def logout():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+@app.post("/queue/enqueue-test")
+def enqueue_test(fail: int = 0):
+    return sqs_enqueue_event({"type":"test", "force_fail": bool(fail)})
+
+@app.post("/queue/process")
+def process_one(mode: str = "ok"):
+    if mode not in ("ok", "fail"):
+        raise HTTPException(400, "mode must be 'ok' or 'fail'")
+    return sqs_process_one(mode)
+
+@app.get("/queue/peek-dlq")
+def peek_dlq():
+    return sqs_peek_dlq()
+
+@app.delete("/queue/purge-dlq-one")
+def purge_dlq_one():
+    return sqs_purge_dlq_one()
