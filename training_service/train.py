@@ -11,13 +11,11 @@ label_map = {
     "Real": "real"
 }
 
-# --- ENV VARS ---
 S3_BUCKET = os.getenv("S3_BUCKET", "ai-detector-image-uploads")
 TABLE_NAME = os.getenv("DDB_TABLE", "n11671025-images2")
 DDB_TABLE_BATCH = os.getenv("DDB_TABLE_BATCH", "ai-image-detector-new-batch")
 REGION = os.getenv("REGION", 'ap-southeast-2')
 
-# --- AWS CLIENTS ---
 s3 = boto3.client("s3", region_name=REGION)
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 
@@ -32,13 +30,11 @@ if not S3_IMAGES:
 
 s3_keys = [key.strip() for key in S3_IMAGES.split(",") if key.strip()]
 
-# --- LOCAL DIR SETUP ---
 base_dir = "/tmp/data"
 train_dir = os.path.join(base_dir, "train")
 os.makedirs(os.path.join(train_dir, "ai"), exist_ok=True)
 os.makedirs(os.path.join(train_dir, "real"), exist_ok=True)
 
-# --- FETCH IMAGES + LABELS ---
 for key in s3_keys:
     # get user feedback from DynamoDB
 
@@ -83,7 +79,6 @@ for key in s3_keys:
     except Exception as e:
         print(f"Failed to download {key}: {e}")
 
-# --- MODEL SETUP ---
 local_model_path = "/tmp/model.pth"
 try:
     s3.download_file(S3_BUCKET, "model/model.pth", local_model_path)
@@ -92,7 +87,6 @@ except:
     print("No existing model found, training from scratch.")
     local_model_path = None
 
-# --- TRAINING PIPELINE ---
 transform = transforms.Compose([
     transforms.Resize((224,224)),
     transforms.ToTensor(),
@@ -120,10 +114,8 @@ if local_model_path and os.path.exists(local_model_path):
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-# --- TRAIN LOOP ---
 print(f"Starting fine-tuning on {len(train_ds)} images...")
 for epoch in range(3):
-    break
 
     total_loss = 0
     for imgs, labels in train_loader:
@@ -136,7 +128,6 @@ for epoch in range(3):
         total_loss += loss.item()
     print(f"Epoch {epoch+1} - Loss: {total_loss / len(train_loader):.4f}")
 
-# --- SAVE & UPLOAD MODEL ---
 torch.save(model.state_dict(), local_model_path)
 
 if os.path.exists(local_model_path):

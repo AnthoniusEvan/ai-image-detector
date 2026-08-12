@@ -6,14 +6,33 @@ from concurrent.futures import ThreadPoolExecutor
 
 URL = "http://ai-image-detector-autoscale-217320775.ap-southeast-2.elb.amazonaws.com/predict"
 IMAGE_PATH = "img.png"
-CONCURRENT = 1          # number of simultaneous workers
-DURATION = 10          # run for 5 minutes (in seconds)
+CONCURRENT = 10          # number of simultaneous workers
+DURATION = 600        
+
 
 with open(IMAGE_PATH, "rb") as f:
     IMAGE_BYTES = f.read()
 
+IMAGE_SOURCE = "https://picsum.photos/512"  # random unique image generator
+
+def get_random_image():
+    try:
+        resp = requests.get(IMAGE_SOURCE, timeout=10)
+        resp.raise_for_status()
+        return resp.content
+    except Exception as e:
+        print(f"[Image Fetch Error] {e}")
+        return None
+    
 def send_request(i):
-    files = {"file": (IMAGE_PATH, IMAGE_BYTES, "image/jpeg")}
+    # files = {"file": (IMAGE_PATH, IMAGE_BYTES, "image/jpeg")}
+
+    image_bytes = get_random_image()
+    if image_bytes is None:
+        print(f"[{i}] Skipped (failed to fetch image)")
+        return
+    files = {"file": ("random.jpg", image_bytes, "image/jpeg")}
+
     try:
         resp = requests.post(URL, files=files, timeout=30)
         print(f"[{i}] {resp.status_code} -> {resp.text[:80]}...")
